@@ -9,6 +9,19 @@ const maxTreeBytes = 20 * 1024 * 1024;
 export class GitRepositoryReader implements RepositoryReader {
   constructor(private readonly workingDirectory = process.cwd()) {}
 
+  ensureCommit(branch: string, sha: string): void {
+    validateBranch(branch);
+    validateCommitSha(sha);
+    if (this.commitExists(sha)) {
+      return;
+    }
+
+    this.fetchBranch(branch);
+    if (!this.commitExists(sha)) {
+      throw new Error(`Branch ${branch} no longer contains commit ${sha}`);
+    }
+  }
+
   fetchBranch(branch: string): string {
     validateBranch(branch);
     const remoteRef = this.remoteRef(branch);
@@ -51,6 +64,15 @@ export class GitRepositoryReader implements RepositoryReader {
     }
   }
 
+  private commitExists(sha: string): boolean {
+    try {
+      this.git(["cat-file", "-e", `${sha}^{commit}`], 1024);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private git(arguments_: string[], maxBuffer = 8 * 1024 * 1024): string {
     return execFileSync("git", arguments_, {
       cwd: this.workingDirectory,
@@ -58,6 +80,12 @@ export class GitRepositoryReader implements RepositoryReader {
       maxBuffer,
       stdio: ["ignore", "pipe", "pipe"],
     });
+  }
+}
+
+function validateCommitSha(sha: string): void {
+  if (!/^[a-f0-9]{40}$/.test(sha)) {
+    throw new Error("Commit SHA must be a full lowercase hexadecimal SHA");
   }
 }
 

@@ -85,7 +85,7 @@ async function run(): Promise<void> {
     for (const branch of branches) {
       let evaluation: BranchEvaluation;
       try {
-        reader.fetchBranch(branch.name);
+        reader.ensureCommit(branch.name, branch.sha);
         evaluation = await evaluateBranch(
           branch.name,
           branch.sha,

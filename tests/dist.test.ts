@@ -7,9 +7,9 @@ import { describe, expect, it } from "vitest";
 const actionPath = resolve("dist/index.js");
 
 describe("compiled action", () => {
-  it("boots without unresolved bundled modules", () => {
+  it("boots as a self-contained ESM bundle", () => {
     const bundle = readFileSync(actionPath, "utf8");
-    expect(bundle).not.toContain("webpackMissingModule");
+    expect(bundle).not.toMatch(/from["']@actions\//);
 
     const result = spawnSync(process.execPath, [actionPath], {
       encoding: "utf8",
@@ -22,6 +22,8 @@ describe("compiled action", () => {
 
     expect(result.status).toBe(1);
     expect(output).not.toContain("Cannot find module");
+    expect(output).not.toContain("ERR_MODULE_NOT_FOUND");
+    expect(output).not.toContain("require is not defined");
     expect(output).toContain("Input required and not supplied: github-token");
   });
 });

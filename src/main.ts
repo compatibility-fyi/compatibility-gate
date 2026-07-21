@@ -1,16 +1,16 @@
 import * as core from "@actions/core";
 import { minimatch } from "minimatch";
 
-import { CompatibilityApiClient } from "./api";
-import { parseConfiguration, validateApiUrl } from "./config";
-import { evaluateBranch } from "./evaluate";
-import { GitRepositoryReader } from "./git";
-import { GitHubClient } from "./github";
+import { CompatibilityApiClient } from "./api.js";
+import { parseConfiguration, validateApiUrl } from "./config.js";
+import { evaluateBranch } from "./evaluate.js";
+import { GitRepositoryReader } from "./git.js";
+import { GitHubClient } from "./github.js";
 import type {
   BranchEvaluation,
   GateConfiguration,
   RepositoryBranch,
-} from "./types";
+} from "./types.js";
 
 async function run(): Promise<void> {
   try {

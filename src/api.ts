@@ -3,7 +3,7 @@ import type {
   CompatibilitySource,
   CompatibilityStatus,
   ConfidenceLevel,
-} from "./types";
+} from "./types.js";
 
 const maxResponseBytes = 1024 * 1024;
 const compatibilityStatuses = new Set<CompatibilityStatus>([

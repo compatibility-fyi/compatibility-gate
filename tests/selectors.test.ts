@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveSelector } from "../src/selectors";
-import { cluster } from "./helpers";
-import { MemoryRepository } from "./helpers";
+import { resolveSelector } from "../src/selectors.js";
+import { cluster } from "./helpers.js";
+import { MemoryRepository } from "./helpers.js";
 
 describe("resolveSelector", () => {
   it("selects matching YAML documents and extracts image versions", async () => {

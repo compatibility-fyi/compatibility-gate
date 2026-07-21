@@ -1,4 +1,4 @@
-import type { RepositoryReader } from "../src/types";
+import type { RepositoryReader } from "../src/types.js";
 
 export class MemoryRepository implements RepositoryReader {
   constructor(private readonly trees: Record<string, Record<string, string>>) {}

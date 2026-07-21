@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
-import type { RepositoryReader } from "./types";
+import type { RepositoryReader } from "./types.js";
 
 const maxFileBytes = 2 * 1024 * 1024;
 const maxTreeBytes = 20 * 1024 * 1024;

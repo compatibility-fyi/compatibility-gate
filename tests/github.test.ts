@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { GitHubClient } from "../src/github";
+import { GitHubClient } from "../src/github.js";
 
 describe("GitHubClient", () => {
   afterEach(() => {

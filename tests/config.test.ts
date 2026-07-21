@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { parseConfiguration } from "../src/config";
-import { configurationYaml } from "./helpers";
+import { parseConfiguration } from "../src/config.js";
+import { configurationYaml } from "./helpers.js";
 
 describe("parseConfiguration", () => {
   it("parses the documented configuration with fail-closed defaults", () => {

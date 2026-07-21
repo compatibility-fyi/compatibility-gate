@@ -1,5 +1,5 @@
-import type { CompatibilityCheckRequest } from "./api";
-import { resolveSelector } from "./selectors";
+import type { CompatibilityCheckRequest } from "./api.js";
+import { resolveSelector } from "./selectors.js";
 import type {
   BranchEvaluation,
   CheckDecision,
@@ -9,7 +9,7 @@ import type {
   GateDefinition,
   GateEvaluation,
   RepositoryReader,
-} from "./types";
+} from "./types.js";
 
 interface CompatibilityChecker {
   check(

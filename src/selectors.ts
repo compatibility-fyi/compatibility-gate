@@ -1,7 +1,7 @@
 import { minimatch } from "minimatch";
 import { parseAllDocuments } from "yaml";
 
-import type { RepositoryReader, ValueSelector } from "./types";
+import type { RepositoryReader, ValueSelector } from "./types.js";
 
 const maxMatchingFiles = 256;
 const maxSelectedValues = 100;

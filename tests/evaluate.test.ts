@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { parseConfiguration } from "../src/config";
-import { evaluateBranch } from "../src/evaluate";
-import type { CompatibilityCheckResponse } from "../src/types";
+import { parseConfiguration } from "../src/config.js";
+import { evaluateBranch } from "../src/evaluate.js";
+import type { CompatibilityCheckResponse } from "../src/types.js";
 import {
   cluster,
   configurationYaml,
   MemoryRepository,
   operator127,
   operator130,
-} from "./helpers";
+} from "./helpers.js";
 
 function response(
   overrides: Partial<CompatibilityCheckResponse> = {},

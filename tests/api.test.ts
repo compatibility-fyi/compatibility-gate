@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CompatibilityApiClient } from "../src/api";
+import { CompatibilityApiClient } from "../src/api.js";
 
 const request = {
   project: "cloudnativepg",

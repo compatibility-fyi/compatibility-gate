@@ -7,7 +7,7 @@ import type {
   GatePolicy,
   GatePolicyConfig,
   ValueSelector,
-} from "./types";
+} from "./types.js";
 
 const identifierPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const confidenceLevels = new Set<ConfidenceLevel>(["low", "medium", "high"]);

@@ -1,7 +1,8 @@
 {
   "name": "compatibility-gate",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
+  "type": "module",
   "description": "Gate Renovate pull requests with source-backed compatibility.fyi metadata.",
   "license": "MIT",
   "repository": {
@@ -13,7 +14,7 @@
   },
   "homepage": "https://compatibility.fyi",
   "scripts": {
-    "build": "ncc build src/main.ts --minify -o dist",
+    "build": "esbuild src/main.ts --bundle --format=esm --minify --outfile=dist/index.js --platform=node --target=node24 --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
     "format": "prettier --write .",
     "lint": "eslint . && prettier --check .",
     "test": "vitest run",
@@ -21,14 +22,14 @@
     "validate": "npm run lint && npm run typecheck && npm run build && npm test"
   },
   "dependencies": {
-    "@actions/core": "^2.0.3",
+    "@actions/core": "^3.0.1",
     "minimatch": "^10.2.5",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.13.3",
-    "@vercel/ncc": "^0.44.1",
+    "esbuild": "^0.28.1",
     "eslint": "^10.7.0",
     "prettier": "^3.9.6",
     "typescript": "6.0.3",

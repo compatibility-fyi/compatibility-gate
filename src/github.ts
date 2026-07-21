@@ -1,6 +1,6 @@
 import { minimatch } from "minimatch";
 
-import type { CommitState, RepositoryBranch } from "./types";
+import type { CommitState, RepositoryBranch } from "./types.js";
 
 const maxResponseBytes = 2 * 1024 * 1024;
 

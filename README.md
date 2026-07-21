@@ -35,6 +35,12 @@ without requiring a new branch commit.
 
 ## Quickstart
 
+The recommended setup below calls the repository's reusable workflow at the job level:
+`compatibility-fyi/compatibility-gate/.github/workflows/gate.yml@v1`. That wrapper creates the
+runner, checks out the caller repository, and invokes the underlying Marketplace action. The direct
+action reference is `compatibility-fyi/compatibility-gate@v1`; use it at the step level when you
+need a custom workflow. Both forms run the same compatibility gate.
+
 ### 1. Add the gate configuration
 
 Create `.github/compatibility-fyi.yaml` on the default branch:

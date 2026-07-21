@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1 - 2026-07-21
+
+- Clarify the difference between the recommended reusable workflow and direct Marketplace action
+  invocation.
+
 ## 1.0.0 - 2026-07-21
 
 - Evaluate configurable cross-dependency compatibility gates on Renovate branches.

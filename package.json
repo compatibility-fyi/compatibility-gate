@@ -1,6 +1,6 @@
 {
   "name": "compatibility-gate",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Gate Renovate pull requests with source-backed compatibility.fyi metadata.",
   "license": "MIT",
@@ -18,10 +18,10 @@
     "lint": "eslint . && prettier --check .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit --pretty false",
-    "validate": "npm run lint && npm run typecheck && npm test && npm run build"
+    "validate": "npm run lint && npm run typecheck && npm run build && npm test"
   },
   "dependencies": {
-    "@actions/core": "^3.0.1",
+    "@actions/core": "^2.0.3",
     "minimatch": "^10.2.5",
     "yaml": "^2.9.0"
   },

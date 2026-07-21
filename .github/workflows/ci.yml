@@ -33,11 +33,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
-        run: npm test
-
       - name: Build action
         run: npm run build
+
+      - name: Test
+        run: npm test
 
       - name: Verify committed bundle
         run: git diff --exit-code -- dist

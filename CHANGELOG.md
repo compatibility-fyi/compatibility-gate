@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.2 - 2026-07-21
+
+- Fix the published action bundle so `@actions/core` is included at runtime.
+- Execute a compiled-action smoke test after building to catch incomplete release bundles.
+
 ## 1.0.1 - 2026-07-21
 
 - Clarify the difference between the recommended reusable workflow and direct Marketplace action

@@ -49,7 +49,7 @@ jobs:
           fetch-depth: 0
 
       - name: Evaluate compatibility
-        uses: compatibility-fyi/compatibility-gate@v1.0.1
+        uses: compatibility-fyi/compatibility-gate@v1.0.2
         with:
           github-token: ${{ github.token }}
           config-file: ${{ inputs.config-file }}

@@ -87,6 +87,19 @@ Your project selector must identify the version actually deployed. If a Helm cha
 from its application version, select an explicit application/image version or another source that
 tracks the deployed project release.
 
+### Combine multiple compatibility axes
+
+Each gate describes one project-to-dependency relationship. To validate a combination, configure
+one gate per relationship. The action evaluates every applicable gate against the complete proposed
+repository state and publishes one combined commit status. Every applicable gate and every selected
+dependency version must pass.
+
+For example, an Advanced Cluster Management update that must work with Multicluster Engine, its
+management-cluster OpenShift version, and its hosted-cluster OpenShift version uses three gates with
+the same project selector and separate dependency selectors. A grouped Renovate branch is allowed
+only when all three relationships pass. The action does not need a separate multi-dependency API
+endpoint for this behavior.
+
 ### 2. Add the workflow
 
 Create `.github/workflows/compatibility-fyi.yml`:

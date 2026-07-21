@@ -96,6 +96,107 @@ describe("evaluateBranch", () => {
     );
   });
 
+  it("combines applicable gates and blocks when any relationship fails", async () => {
+    const reader = new MemoryRepository({
+      base: {
+        "acm.yaml": "version: '2.15'",
+        "mce.yaml": "version: '2.10'",
+        "management-cluster.yaml": "version: '4.20.0'",
+        "hosted-cluster.yaml": "version: '4.20.0'",
+      },
+      head: {
+        "acm.yaml": "version: '2.16'",
+        "mce.yaml": "version: '2.11'",
+        "management-cluster.yaml": "version: '4.21.22'",
+        "hosted-cluster.yaml": "version: '4.21.22'",
+      },
+    });
+    const configuration = parseConfiguration(configurationYaml);
+    const policy = configuration.gates[0]!.policy;
+    const dependencies = [
+      ["multicluster-engine", "mce.yaml"],
+      ["openshift-management-cluster", "management-cluster.yaml"],
+      ["openshift-hosted-cluster", "hosted-cluster.yaml"],
+    ] as const;
+    configuration.gates = dependencies.map(([dependency, file]) => ({
+      id: `acm-${dependency}`,
+      project: {
+        id: "red-hat-advanced-cluster-management",
+        version: { files: ["acm.yaml"], value: "version" },
+      },
+      dependency: {
+        id: dependency,
+        versions: { files: [file], value: "version" },
+      },
+      policy,
+    }));
+
+    const checker = {
+      check: vi
+        .fn()
+        .mockImplementation(
+          (request: {
+            project: string;
+            version: string;
+            dependency: string;
+            dependencyVersion: string;
+          }) => {
+            const compatible =
+              request.dependency !== "openshift-hosted-cluster";
+            return Promise.resolve(
+              response({
+                project: request.project,
+                version: request.version,
+                dependency: request.dependency,
+                dependencyVersion: request.dependencyVersion,
+                compatible: compatible ? "compatible" : "incompatible",
+                matchedRange: compatible ? ">=1.0.0 <99.0.0" : null,
+              }),
+            );
+          },
+        ),
+    };
+
+    const result = await evaluateBranch(
+      "renovate/acm-platform-combination",
+      "1".repeat(40),
+      "base",
+      reader,
+      configuration,
+      checker,
+    );
+
+    expect(checker.check).toHaveBeenCalledTimes(3);
+    expect(checker.check).toHaveBeenNthCalledWith(1, {
+      project: "red-hat-advanced-cluster-management",
+      version: "2.16",
+      dependency: "multicluster-engine",
+      dependencyVersion: "2.11",
+    });
+    expect(checker.check).toHaveBeenNthCalledWith(2, {
+      project: "red-hat-advanced-cluster-management",
+      version: "2.16",
+      dependency: "openshift-management-cluster",
+      dependencyVersion: "4.21.22",
+    });
+    expect(checker.check).toHaveBeenNthCalledWith(3, {
+      project: "red-hat-advanced-cluster-management",
+      version: "2.16",
+      dependency: "openshift-hosted-cluster",
+      dependencyVersion: "4.21.22",
+    });
+    expect(result.gates.every((gate) => gate.applicable)).toBe(true);
+    expect(
+      result.gates.flatMap((gate) =>
+        gate.decisions.map((decision) => decision.state),
+      ),
+    ).toEqual(["success", "success", "failure"]);
+    expect(result.state).toBe("failure");
+    expect(result.description).toContain(
+      "does not support openshift-hosted-cluster 4.21.22",
+    );
+  });
+
   it("returns success without an API call for unrelated branches", async () => {
     const reader = repository(operator127, "17.10", operator127, "17.10");
     const checker = { check: vi.fn() };

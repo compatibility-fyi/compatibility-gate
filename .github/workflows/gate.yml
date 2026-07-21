@@ -1,0 +1,60 @@
+name: compatibility.fyi gate
+
+on:
+  workflow_call:
+    inputs:
+      config-file:
+        description: Configuration file on the caller's default branch.
+        required: false
+        type: string
+        default: .github/compatibility-fyi.yaml
+      api-url:
+        description: Optional compatibility check endpoint override.
+        required: false
+        type: string
+        default: ""
+      mode:
+        description: "Evaluation mode: auto, current, or all."
+        required: false
+        type: string
+        default: auto
+      branch-pattern:
+        description: Glob identifying Renovate branches.
+        required: false
+        type: string
+        default: renovate/**
+      base-branch:
+        description: Default branch override.
+        required: false
+        type: string
+        default: ""
+      status-context:
+        description: Commit status context.
+        required: false
+        type: string
+        default: compatibility.fyi/gate
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  gate:
+    name: compatibility gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout caller repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Evaluate compatibility
+        uses: compatibility-fyi/compatibility-gate@v1
+        with:
+          github-token: ${{ github.token }}
+          config-file: ${{ inputs.config-file }}
+          api-url: ${{ inputs.api-url }}
+          mode: ${{ inputs.mode }}
+          branch-pattern: ${{ inputs.branch-pattern }}
+          base-branch: ${{ inputs.base-branch }}
+          status-context: ${{ inputs.status-context }}

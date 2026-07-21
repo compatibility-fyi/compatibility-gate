@@ -1,0 +1,46 @@
+name: compatibility.fyi Renovate Gate
+author: compatibility.fyi
+description: Gate Renovate pull requests with source-backed software compatibility metadata.
+
+inputs:
+  github-token:
+    description: GitHub token used to read Renovate branches and publish commit statuses.
+    required: true
+  config-file:
+    description: Configuration file read from the repository's default branch.
+    required: false
+    default: .github/compatibility-fyi.yaml
+  api-url:
+    description: Optional compatibility check endpoint override.
+    required: false
+  mode:
+    description: Evaluate the current branch, all matching branches, or infer the mode from the event.
+    required: false
+    default: auto
+  branch-pattern:
+    description: Glob identifying Renovate branches when mode is all or auto.
+    required: false
+    default: renovate/**
+  base-branch:
+    description: Repository default branch override.
+    required: false
+  status-context:
+    description: GitHub commit status context published by the action.
+    required: false
+    default: compatibility.fyi/gate
+
+outputs:
+  evaluated-branches:
+    description: Number of branches evaluated.
+  blocked-branches:
+    description: Number of branches that received failure or error status.
+  result:
+    description: success when every evaluated branch passed, blocked otherwise.
+
+runs:
+  using: node24
+  main: dist/index.js
+
+branding:
+  icon: shield
+  color: blue

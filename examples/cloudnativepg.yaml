@@ -1,0 +1,31 @@
+version: 1
+
+defaults:
+  unknown: block
+  apiError: block
+  minimumConfidence: high
+  maximumEvidenceAgeDays: 180
+
+gates:
+  - id: cnpg-postgresql
+    project:
+      id: cloudnativepg
+      version:
+        files:
+          - crds/cloudnative-pg/crds.yaml
+        document:
+          apiVersion: source.toolkit.fluxcd.io/v1
+          kind: GitRepository
+          metadata.name: cloudnative-pg
+        value: spec.ref.tag
+
+    dependency:
+      id: postgresql
+      versions:
+        files:
+          - apps/**/postgres/*.yaml
+        document:
+          apiVersion: postgresql.cnpg.io/v1
+          kind: Cluster
+        value: spec.imageName
+        extract: ":(?<version>[^@]+)$"

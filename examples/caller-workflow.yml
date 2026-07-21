@@ -1,0 +1,18 @@
+name: compatibility.fyi gate
+
+on:
+  push:
+    branches:
+      - "renovate/**"
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  gate:
+    permissions:
+      contents: read
+      statuses: write
+    uses: compatibility-fyi/compatibility-gate/.github/workflows/gate.yml@v1
+    with:
+      mode: ${{ github.event_name == 'push' && 'current' || 'all' }}

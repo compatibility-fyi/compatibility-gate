@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: compatibility.fyi data issue
+    url: https://github.com/compatibility-fyi/compatibility.fyi/issues
+    about: Report missing or incorrect source-backed compatibility metadata.

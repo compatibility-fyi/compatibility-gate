@@ -227,8 +227,14 @@ request on a later run.
 
 ### 4. Schedule automatic rechecks
 
-This is optional but recommended so compatibility metadata changes can unblock an unchanged
-Renovate branch:
+A pipeline schedule is required if unchanged Renovate branches should be rechecked and unblocked
+automatically. New or updated Renovate branches run the gate immediately, but a push to the default
+branch or a compatibility.fyi metadata change does not rerun existing branch pipelines. Renovate
+only reads their current status. Without a schedule, rechecking requires a branch update or a manual
+pipeline run.
+
+GitLab schedules are project settings and cannot be created by `include:remote`. Configure one for
+each repository that uses the gate:
 
 1. In **Settings > CI/CD > Pipeline trigger tokens**, create a trigger token.
 2. Save its value under **Settings > CI/CD > Variables** as

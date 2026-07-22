@@ -79,10 +79,15 @@ jobs:
           provenance: mode=max
           sbom: true
 
-      - name: Ensure image is public
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: >-
-          gh api --method PATCH
-          /orgs/compatibility-fyi/packages/container/compatibility-gate
-          --field visibility=public
+      - name: Verify anonymous pull access
+        run: |
+          for attempt in {1..10}; do
+            if curl --fail --silent --show-error \
+              "https://ghcr.io/token?scope=repository%3Acompatibility-fyi%2Fcompatibility-gate%3Apull&service=ghcr.io" \
+              | jq --exit-status '.token | type == "string" and length > 0' >/dev/null; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "The compatibility-gate package does not allow anonymous pulls" >&2
+          exit 1

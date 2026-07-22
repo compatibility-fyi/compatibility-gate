@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 - 2026-07-22
+
+- Verify that release images allow anonymous pulls instead of attempting an unsupported package
+  visibility mutation with the workflow token.
+
 ## 1.1.0 - 2026-07-22
 
 - Add a public GitHub-hosted GitLab CI remote template and GHCR runtime image.

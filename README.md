@@ -197,6 +197,19 @@ The template adds two `.pre` jobs:
 - `compatibility.fyi/recheck` runs only in a scheduled default-branch pipeline and retriggers the
   existing Renovate branch pipelines.
 
+GitLab does not create a pipeline that contains only jobs in the special `.pre` and `.post` stages.
+Most projects already have an ordinary build, test, or deploy job, which satisfies this requirement.
+If the gate is the repository's first CI configuration, add one job in a regular stage (or use an
+existing stage from your pipeline):
+
+```yaml
+"compatibility.fyi/pipeline-anchor":
+  stage: test
+  image: alpine:3.23.2
+  script:
+    - echo "The compatibility pipeline is active."
+```
+
 ### 3. Tell Renovate to wait
 
 Use the same platform-independent Renovate setting:

@@ -1,9 +1,9 @@
 {
   "name": "compatibility-gate",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
-  "description": "Gate Renovate pull requests with source-backed compatibility.fyi metadata.",
+  "description": "Gate Renovate updates with source-backed compatibility.fyi metadata.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -14,7 +14,9 @@
   },
   "homepage": "https://compatibility.fyi",
   "scripts": {
-    "build": "esbuild src/main.ts --bundle --format=esm --minify --outfile=dist/index.js --platform=node --target=node24 --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
+    "build": "npm run build:action && npm run build:cli",
+    "build:action": "esbuild src/main.ts --bundle --format=esm --minify --outfile=dist/index.js --platform=node --target=node24 --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
+    "build:cli": "esbuild src/cli.ts --bundle --format=esm --minify --outfile=dist/cli.js --platform=node --target=node24 --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
     "format": "prettier --write .",
     "lint": "eslint . && prettier --check .",
     "test": "vitest run",

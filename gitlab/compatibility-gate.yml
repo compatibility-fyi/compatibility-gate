@@ -1,0 +1,38 @@
+---
+variables:
+  COMPATIBILITY_FYI_IMAGE: "ghcr.io/compatibility-fyi/compatibility-gate:v1.1.0"
+  COMPATIBILITY_FYI_BRANCH_PATTERN: "renovate/**"
+  COMPATIBILITY_FYI_BRANCH_REGEX: "/^renovate\\//"
+
+"compatibility.fyi/gate":
+  stage: .pre
+  image:
+    name: "$COMPATIBILITY_FYI_IMAGE"
+    entrypoint: [""]
+  variables:
+    GIT_DEPTH: "0"
+  needs: []
+  interruptible: true
+  allow_failure: false
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - if: "$CI_COMMIT_BRANCH =~ $COMPATIBILITY_FYI_BRANCH_REGEX"
+    - if: "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ $COMPATIBILITY_FYI_BRANCH_REGEX"
+  script:
+    - node /opt/compatibility-gate/cli.js evaluate
+
+"compatibility.fyi/recheck":
+  stage: .pre
+  image:
+    name: "$COMPATIBILITY_FYI_IMAGE"
+    entrypoint: [""]
+  variables:
+    GIT_STRATEGY: none
+  needs: []
+  interruptible: true
+  allow_failure: false
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - node /opt/compatibility-gate/cli.js recheck

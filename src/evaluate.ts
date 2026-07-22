@@ -11,7 +11,7 @@ import type {
   RepositoryReader,
 } from "./types.js";
 
-interface CompatibilityChecker {
+export interface CompatibilityChecker {
   check(
     request: CompatibilityCheckRequest,
   ): Promise<CompatibilityCheckResponse>;

@@ -1,16 +1,14 @@
 import * as core from "@actions/core";
 import { minimatch } from "minimatch";
 
-import { CompatibilityApiClient } from "./api.js";
-import { parseConfiguration, validateApiUrl } from "./config.js";
-import { evaluateBranch } from "./evaluate.js";
 import { GitRepositoryReader } from "./git.js";
 import { GitHubClient } from "./github.js";
-import type {
-  BranchEvaluation,
-  GateConfiguration,
-  RepositoryBranch,
-} from "./types.js";
+import {
+  evaluateConfiguredBranch,
+  prepareGate,
+  type PreparedGate,
+} from "./runner.js";
+import type { BranchEvaluation, RepositoryBranch } from "./types.js";
 
 async function run(): Promise<void> {
   try {
@@ -45,19 +43,17 @@ async function run(): Promise<void> {
     }
 
     const reader = new GitRepositoryReader();
-    let baseRef: string;
-    let configuration: GateConfiguration;
+    let prepared: PreparedGate;
     try {
-      baseRef = reader.fetchBranch(baseBranch);
       const configPath =
         core.getInput("config-file") || ".github/compatibility-fyi.yaml";
-      const rawConfig = await reader.readFile(baseRef, configPath);
-      configuration = parseConfiguration(rawConfig);
       const apiOverride = core.getInput("api-url");
-      if (apiOverride) {
-        validateApiUrl(apiOverride);
-        configuration.api.url = apiOverride;
-      }
+      prepared = await prepareGate(
+        reader,
+        baseBranch,
+        configPath,
+        apiOverride || undefined,
+      );
     } catch (error) {
       const message = `Gate configuration error: ${errorMessage(error)}`;
       for (const branch of branches) {
@@ -75,34 +71,15 @@ async function run(): Promise<void> {
       return;
     }
 
-    const checker = new CompatibilityApiClient(
-      configuration.api.url,
-      configuration.api.timeoutMs,
-      configuration.api.retries,
-    );
     const evaluations: BranchEvaluation[] = [];
 
     for (const branch of branches) {
-      let evaluation: BranchEvaluation;
-      try {
-        reader.ensureCommit(branch.name, branch.sha);
-        evaluation = await evaluateBranch(
-          branch.name,
-          branch.sha,
-          baseRef,
-          reader,
-          configuration,
-          checker,
-        );
-      } catch (error) {
-        evaluation = {
-          branch: branch.name,
-          sha: branch.sha,
-          state: "error",
-          description: `Gate execution error: ${errorMessage(error)}`,
-          gates: [],
-        };
-      }
+      const evaluation = await evaluateConfiguredBranch(
+        reader,
+        prepared,
+        branch.name,
+        branch.sha,
+      );
 
       await github.createStatus(
         branch.sha,

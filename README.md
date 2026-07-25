@@ -182,8 +182,8 @@ Add this to `.gitlab-ci.yml`:
 ```yaml
 ---
 include:
-  - remote: "https://raw.githubusercontent.com/compatibility-fyi/compatibility-gate/108b0627d0e9d30cdb5f797e6daa5974a2263da3/gitlab/compatibility-gate.yml"
-    integrity: "sha256-m6jAnXVEcK1PtRhcubnX9V8eqYNsmxkvNV9T6z95CI0="
+  - remote: "https://raw.githubusercontent.com/compatibility-fyi/compatibility-gate/7d904eacf7351f0dafc714fb267e01483982a50e/gitlab/compatibility-gate.yml"
+    integrity: "sha256-pqIbaouASSVj6VT/vQuNkBq53RYGLSy15tyv2GIFBwE="
 ```
 
 The released README contains the exact immutable commit and SHA-256 integrity value. Do not replace

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.2 - 2026-07-25
+
+- Refresh the bundled Action and CLI dependency tree, including brace-expansion 5.0.8.
+- Publish the GitLab runtime on Node.js 24.18.0.
+- Document the regular-stage pipeline anchor and scheduled rechecks required for reliable GitLab
+  gating.
+
 ## 1.1.1 - 2026-07-22
 
 - Verify that release images allow anonymous pulls instead of attempting an unsupported package

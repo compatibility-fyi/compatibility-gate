@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.3 - 2026-08-04
+
+- Patch the bundled undici and brace-expansion dependencies to their fixed releases.
+- Update the development-only PostCSS dependency to its fixed release.
+
 ## 1.1.2 - 2026-07-25
 
 - Refresh the bundled Action and CLI dependency tree, including brace-expansion 5.0.8.

@@ -5,6 +5,7 @@ import type {
   CheckDecision,
   CompatibilityCheckResponse,
   ConfidenceLevel,
+  DecisionState,
   GateConfiguration,
   GateDefinition,
   GateEvaluation,
@@ -38,16 +39,11 @@ export async function evaluateBranch(
   }
 
   const decisions = gates.flatMap((gate) => gate.decisions);
-  const state = decisions.some((decision) => decision.state === "error")
-    ? "error"
-    : decisions.some((decision) => decision.state === "failure")
-      ? "failure"
-      : "success";
-
-  const blocked = decisions.find((decision) => decision.state !== "success");
+  const noteworthy = mostSevereDecision(decisions);
+  const state = noteworthy?.state ?? "success";
   const applicable = gates.filter((gate) => gate.applicable);
-  const description = blocked
-    ? blocked.message
+  const description = noteworthy
+    ? noteworthy.message
     : applicable.length === 0
       ? "No configured compatibility gate applies"
       : decisions.length === 1
@@ -128,13 +124,14 @@ async function evaluateGate(
     );
   }
 
-  const blocked = decisions.find((decision) => decision.state !== "success");
+  const noteworthy = mostSevereDecision(decisions);
   return {
     gateId: gate.id,
     applicable: true,
     decisions,
     message:
-      blocked?.message ?? `${decisions.length} compatibility check(s) passed`,
+      noteworthy?.message ??
+      `${decisions.length} compatibility check(s) passed`,
   };
 }
 
@@ -162,11 +159,11 @@ async function evaluateCheck(
       dependencyVersion,
     });
   } catch (error) {
-    const allowed = gate.policy.apiError === "allow";
+    const policy = gate.policy.apiError;
     return {
       ...base,
-      state: allowed ? "success" : "error",
-      message: `${gate.id}: API error ${allowed ? "allowed" : "blocked"}: ${errorMessage(error)}`,
+      state: policyState(policy),
+      message: `${gate.id}: API error ${policyLabel(policy)}: ${errorMessage(error)}`,
     };
   }
 
@@ -180,11 +177,11 @@ async function evaluateCheck(
   }
 
   if (response.compatible === "unknown") {
-    const allowed = gate.policy.unknown === "allow";
+    const policy = gate.policy.unknown;
     return {
       ...base,
-      state: allowed ? "success" : "error",
-      message: `${gate.id}: unknown compatibility ${allowed ? "allowed" : "blocked"}`,
+      state: policyState(policy),
+      message: `${gate.id}: unknown compatibility ${policyLabel(policy)}`,
       response,
     };
   }
@@ -253,6 +250,45 @@ function sameValues(left: string[], right: string[]): boolean {
   }
   const rightValues = new Set(right);
   return left.every((value) => rightValues.has(value));
+}
+
+function policyState(
+  policy: GateDefinition["policy"]["unknown"],
+): DecisionState {
+  return policy === "allow"
+    ? "success"
+    : policy === "warn"
+      ? "warning"
+      : "error";
+}
+
+function policyLabel(
+  policy: GateDefinition["policy"]["unknown"],
+): "allowed" | "warning" | "blocked" {
+  return policy === "allow"
+    ? "allowed"
+    : policy === "warn"
+      ? "warning"
+      : "blocked";
+}
+
+function mostSevereDecision(
+  decisions: CheckDecision[],
+): CheckDecision | undefined {
+  const severity: Record<DecisionState, number> = {
+    success: 0,
+    warning: 1,
+    failure: 2,
+    error: 3,
+  };
+  return decisions.reduce<CheckDecision | undefined>(
+    (current, decision) =>
+      decision.state !== "success" &&
+      (!current || severity[decision.state] > severity[current.state])
+        ? decision
+        : current,
+    undefined,
+  );
 }
 
 function evidenceAgeDays(

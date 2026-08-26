@@ -28,7 +28,7 @@ async function run(): Promise<void> {
     if (branches.length === 0) {
       core.info(`No branches matched ${branchPattern}`);
       await writeSummary([], `No branches matched \`${branchPattern}\`.`);
-      setOutputs(0, 0);
+      setOutputs(0, 0, 0);
       return;
     }
 
@@ -67,7 +67,7 @@ async function run(): Promise<void> {
       }
       core.warning(message);
       await writeSummary([], message);
-      setOutputs(branches.length, branches.length);
+      setOutputs(branches.length, branches.length, 0);
       return;
     }
 
@@ -83,9 +83,11 @@ async function run(): Promise<void> {
 
       await github.createStatus(
         branch.sha,
-        evaluation.state,
+        evaluation.state === "warning" ? "success" : evaluation.state,
         statusContext,
-        evaluation.description,
+        evaluation.state === "warning"
+          ? `Warning: ${evaluation.description}`
+          : evaluation.description,
         targetUrl,
       );
       evaluations.push(evaluation);
@@ -98,10 +100,14 @@ async function run(): Promise<void> {
     }
 
     const blocked = evaluations.filter(
-      (evaluation) => evaluation.state !== "success",
+      (evaluation) =>
+        evaluation.state === "failure" || evaluation.state === "error",
+    ).length;
+    const warned = evaluations.filter(
+      (evaluation) => evaluation.state === "warning",
     ).length;
     await writeSummary(evaluations);
-    setOutputs(evaluations.length, blocked);
+    setOutputs(evaluations.length, blocked, warned);
   } catch (error) {
     core.setFailed(errorMessage(error));
   }
@@ -143,10 +149,14 @@ async function selectBranches(
   return [{ name: refName, sha }];
 }
 
-function setOutputs(evaluated: number, blocked: number): void {
+function setOutputs(evaluated: number, blocked: number, warned: number): void {
   core.setOutput("evaluated-branches", String(evaluated));
   core.setOutput("blocked-branches", String(blocked));
-  core.setOutput("result", blocked === 0 ? "success" : "blocked");
+  core.setOutput("warned-branches", String(warned));
+  core.setOutput(
+    "result",
+    blocked > 0 ? "blocked" : warned > 0 ? "warning" : "success",
+  );
 }
 
 async function writeSummary(

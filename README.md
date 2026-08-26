@@ -26,14 +26,18 @@ reads declared YAML values, calls the public compatibility API, and reports a CI
 5. For every applicable gate, it calls `https://compatibility.fyi/api/v1/check`.
 6. It reports `compatibility.fyi/gate` as:
    - `success` when every applicable check passes;
+   - a non-blocking warning when an `unknown` result or API error uses the `warn` policy;
    - `failure` for documented incompatibility or evidence below policy;
-   - `error` for unknown compatibility, invalid configuration, or API failure.
+   - `error` for invalid configuration, or for unknown compatibility and API failures configured
+     with the `block` policy.
 7. Renovate opens the pull request or merge request on its next run after the combined branch
    status becomes green.
 
-On GitHub, the workflow completes successfully after publishing a separate blocking commit status.
-On GitLab, the gate job itself fails when it blocks an update. In both cases, a later scheduled
-evaluation can replace the previous result on the same commit without requiring a new branch commit.
+On GitHub, the workflow completes successfully after publishing a separate commit status; warnings
+use a successful status plus a warning annotation and step-summary details. On GitLab, warnings use
+an allowed-to-fail exit code so the job is orange while the pipeline remains successful. Blocking
+results still fail the GitLab job. In both cases, a later scheduled evaluation can replace the
+previous result on the same commit without requiring a new branch commit.
 
 ## GitHub quickstart
 
@@ -192,8 +196,8 @@ plus `integrity` prevents an upstream template change from silently changing an 
 
 The template adds two `.pre` jobs:
 
-- `compatibility.fyi/gate` evaluates Renovate branch pipelines and fails closed when compatibility
-  is blocked, unknown, or cannot be checked;
+- `compatibility.fyi/gate` evaluates Renovate branch pipelines and applies the configured
+  allow/warn/block policy when compatibility is unknown or cannot be checked;
 - `compatibility.fyi/recheck` runs only in a scheduled default-branch pipeline and retriggers the
   existing Renovate branch pipelines.
 
@@ -324,18 +328,18 @@ Selectors are limited to 256 matching files and 100 unique values per branch eva
 
 ### Policy
 
-| Field                    | Default | Description                                                  |
-| ------------------------ | ------- | ------------------------------------------------------------ |
-| `unknown`                | `block` | `block` or `allow` when compatibility.fyi returns `unknown`. |
-| `apiError`               | `block` | `block` or `allow` when the API is unavailable or malformed. |
-| `minimumConfidence`      | `high`  | Minimum accepted evidence level: `low`, `medium`, or `high`. |
-| `maximumEvidenceAgeDays` | unset   | Maximum age of the API response's `lastVerified` date.       |
+| Field                    | Default | Description                                                           |
+| ------------------------ | ------- | --------------------------------------------------------------------- |
+| `unknown`                | `block` | `allow`, `warn`, or `block` when compatibility.fyi returns `unknown`. |
+| `apiError`               | `block` | `allow`, `warn`, or `block` when the API is unavailable or malformed. |
+| `minimumConfidence`      | `high`  | Minimum accepted evidence level: `low`, `medium`, or `high`.          |
+| `maximumEvidenceAgeDays` | unset   | Maximum age of the API response's `lastVerified` date.                |
 
 Defaults can be shared and overridden by individual gates:
 
 ```yaml
 defaults:
-  unknown: block
+  unknown: warn
   apiError: block
   minimumConfidence: high
   maximumEvidenceAgeDays: 180
@@ -368,11 +372,12 @@ The underlying action additionally requires `github-token`; the reusable workflo
 
 ### Action outputs
 
-| Output               | Description                                        |
-| -------------------- | -------------------------------------------------- |
-| `evaluated-branches` | Number of branches evaluated.                      |
-| `blocked-branches`   | Number of branches receiving `failure` or `error`. |
-| `result`             | `success` or `blocked`.                            |
+| Output               | Description                                          |
+| -------------------- | ---------------------------------------------------- |
+| `evaluated-branches` | Number of branches evaluated.                        |
+| `blocked-branches`   | Number of branches receiving `failure` or `error`.   |
+| `warned-branches`    | Number of branches receiving a non-blocking warning. |
+| `result`             | Overall result: `success`, `warning`, or `blocked`.  |
 
 The action step does not fail merely because compatibility is blocked. Consumers should use the
 published commit status as the policy signal.
@@ -408,6 +413,12 @@ Every run writes a GitHub Actions step summary containing:
 - links to primary sources returned by compatibility.fyi.
 
 The commit status links back to the workflow run.
+
+GitHub has no warning commit-status state, so `warn` publishes a successful status whose
+description begins with `Warning:`, emits a workflow warning annotation, and records `warning` in
+the summary and outputs. GitLab exits with code 2 for `warn`; the supplied template marks only that
+exit code as allowed to fail, producing an orange warning without blocking Renovate. Explicit
+incompatibility, insufficient confidence, and stale evidence always remain blocking.
 
 GitLab writes the same decision and primary-source details to the `compatibility.fyi/gate` job log.
 The job succeeds only when every applicable gate passes.

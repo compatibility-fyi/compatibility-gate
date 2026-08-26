@@ -34,7 +34,7 @@ api:
   timeoutSeconds: 5
   retries: 0
 defaults:
-  unknown: allow
+  unknown: warn
   apiError: allow
   minimumConfidence: medium
   maximumEvidenceAgeDays: 180
@@ -46,11 +46,20 @@ defaults:
       retries: 0,
     });
     expect(configuration.gates[0]!.policy).toEqual({
-      unknown: "allow",
+      unknown: "warn",
       apiError: "allow",
       minimumConfidence: "medium",
       maximumEvidenceAgeDays: 180,
     });
+  });
+
+  it("rejects invalid gate policies", () => {
+    expect(() =>
+      parseConfiguration(`${configurationYaml}
+defaults:
+  unknown: ignore
+`),
+    ).toThrow("must be allow, warn, or block");
   });
 
   it("rejects unknown fields so policy typos cannot silently bypass a gate", () => {

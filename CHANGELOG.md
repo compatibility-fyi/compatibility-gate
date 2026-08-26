@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0 - 2026-08-25
+
+- Add `warn` policy handling for unknown compatibility and API errors.
+- Publish non-blocking GitHub warning annotations and successful commit statuses for warnings.
+- Return exit code 2 for GitLab warnings so pipelines display an allowed-to-fail warning.
+
 ## 1.1.3 - 2026-08-04
 
 - Patch the bundled undici and brace-expansion dependencies to their fixed releases.

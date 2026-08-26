@@ -10,6 +10,7 @@ const maxGitLabResponseBytes = 2 * 1024 * 1024;
 
 export interface GateLogger {
   info(message: string): void;
+  warn(message: string): void;
   error(message: string): void;
 }
 
@@ -62,7 +63,11 @@ export async function runGitLabGate(
       sha,
     );
     writeEvaluation(evaluation, logger);
-    return evaluation.state === "success" ? 0 : 1;
+    return evaluation.state === "success"
+      ? 0
+      : evaluation.state === "warning"
+        ? 2
+        : 1;
   } catch (error) {
     logger.error(
       singleLine(`Compatibility gate error: ${errorMessage(error)}`),
@@ -225,6 +230,8 @@ function writeEvaluation(
   const summary = singleLine(`${evaluation.branch}: ${evaluation.description}`);
   if (evaluation.state === "success") {
     logger.info(summary);
+  } else if (evaluation.state === "warning") {
+    logger.warn(summary);
   } else {
     logger.error(summary);
   }
@@ -236,6 +243,8 @@ function writeEvaluation(
     for (const decision of gate.decisions) {
       if (decision.state === "success") {
         logger.info(singleLine(decision.message));
+      } else if (decision.state === "warning") {
+        logger.warn(singleLine(decision.message));
       } else {
         logger.error(singleLine(decision.message));
       }
@@ -334,5 +343,6 @@ function errorMessage(error: unknown): string {
 
 const consoleLogger: GateLogger = {
   info: (message) => console.log(message),
+  warn: (message) => console.warn(message),
   error: (message) => console.error(message),
 };

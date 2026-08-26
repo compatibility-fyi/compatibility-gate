@@ -11,7 +11,7 @@ import type {
 
 const identifierPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const confidenceLevels = new Set<ConfidenceLevel>(["low", "medium", "high"]);
-const gatePolicies = new Set<GatePolicy>(["allow", "block"]);
+const gatePolicies = new Set<GatePolicy>(["allow", "warn", "block"]);
 
 const defaultPolicy: GatePolicyConfig = {
   unknown: "block",
@@ -342,7 +342,7 @@ function optionalPolicy(value: unknown, path: string): GatePolicy | undefined {
     return undefined;
   }
   if (typeof value !== "string" || !gatePolicies.has(value as GatePolicy)) {
-    throw new Error(`${path} must be allow or block`);
+    throw new Error(`${path} must be allow, warn, or block`);
   }
   return value as GatePolicy;
 }

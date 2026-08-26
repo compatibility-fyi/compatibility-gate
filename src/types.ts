@@ -1,7 +1,8 @@
 export type CompatibilityStatus = "compatible" | "incompatible" | "unknown";
 export type ConfidenceLevel = "low" | "medium" | "high";
-export type GatePolicy = "allow" | "block";
+export type GatePolicy = "allow" | "warn" | "block";
 export type CommitState = "error" | "failure" | "pending" | "success";
+export type DecisionState = Exclude<CommitState, "pending"> | "warning";
 
 export interface CompatibilitySource {
   title: string;
@@ -66,7 +67,7 @@ export interface RepositoryReader {
 }
 
 export interface CheckDecision {
-  state: Exclude<CommitState, "pending">;
+  state: DecisionState;
   gateId: string;
   project: string;
   projectVersion: string;
@@ -86,7 +87,7 @@ export interface GateEvaluation {
 export interface BranchEvaluation {
   branch: string;
   sha: string;
-  state: Exclude<CommitState, "pending">;
+  state: DecisionState;
   description: string;
   gates: GateEvaluation[];
 }

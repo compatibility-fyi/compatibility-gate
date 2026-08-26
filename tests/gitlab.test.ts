@@ -65,6 +65,32 @@ describe("GitLab compatibility gate", () => {
     });
   });
 
+  it("returns the non-blocking warning exit code for warn policy", async () => {
+    const fixture = createRepositoryFixture(
+      false,
+      `${configurationYaml}\ndefaults:\n  unknown: warn\n`,
+    );
+    await withCompatibilityApi("unknown", async (apiUrl) => {
+      const logs = captureLogs();
+      const exitCode = await runGitLabGate(
+        {
+          CI_COMMIT_BRANCH: fixture.branch,
+          CI_COMMIT_SHA: fixture.sha,
+          CI_DEFAULT_BRANCH: "master",
+          COMPATIBILITY_FYI_API_URL: apiUrl,
+        },
+        logs.logger,
+        fixture.repository,
+      );
+
+      expect(exitCode).toBe(2);
+      expect(logs.warnings.join("\n")).toContain(
+        "unknown compatibility warning",
+      );
+      expect(logs.errors).toEqual([]);
+    });
+  });
+
   it("returns success without reading configuration for unrelated branches", async () => {
     const logs = captureLogs();
     const exitCode = await runGitLabGate(
@@ -155,7 +181,10 @@ describe("GitLab scheduled recheck", () => {
   });
 });
 
-function createRepositoryFixture(branchChangesPolicy: boolean): {
+function createRepositoryFixture(
+  branchChangesPolicy: boolean,
+  defaultBranchConfiguration = configurationYaml,
+): {
   repository: string;
   branch: string;
   sha: string;
@@ -174,7 +203,7 @@ function createRepositoryFixture(branchChangesPolicy: boolean): {
   mkdirSync(path.join(repository, "clusters"), { recursive: true });
   writeFileSync(
     path.join(repository, ".gitlab", "compatibility-fyi.yaml"),
-    configurationYaml,
+    defaultBranchConfiguration,
   );
   writeFileSync(path.join(repository, "operator.yaml"), operator127);
   writeFileSync(
@@ -246,15 +275,19 @@ async function withCompatibilityApi(
 function captureLogs(): {
   logger: GateLogger;
   infos: string[];
+  warnings: string[];
   errors: string[];
 } {
   const infos: string[] = [];
+  const warnings: string[] = [];
   const errors: string[] = [];
   return {
     infos,
+    warnings,
     errors,
     logger: {
       info: (message) => infos.push(message),
+      warn: (message) => warnings.push(message),
       error: (message) => errors.push(message),
     },
   };

@@ -10,7 +10,9 @@ describe("GitLab remote template", () => {
       readFileSync(resolve("gitlab/compatibility-gate.yml"), "utf8"),
     ) as Record<string, Record<string, unknown>>;
 
-    expect(template["compatibility.fyi/gate"]?.allow_failure).toBe(false);
+    expect(template["compatibility.fyi/gate"]?.allow_failure).toEqual({
+      exit_codes: 2,
+    });
     expect(template["compatibility.fyi/gate"]?.stage).toBe(".pre");
     expect(template["compatibility.fyi/recheck"]?.allow_failure).toBe(false);
     expect(template["compatibility.fyi/recheck"]?.stage).toBe(".pre");

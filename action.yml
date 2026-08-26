@@ -34,8 +34,10 @@ outputs:
     description: Number of branches evaluated.
   blocked-branches:
     description: Number of branches that received failure or error status.
+  warned-branches:
+    description: Number of branches that received a non-blocking warning.
   result:
-    description: success when every evaluated branch passed, blocked otherwise.
+    description: Overall result as success, warning, or blocked.
 
 runs:
   using: node24

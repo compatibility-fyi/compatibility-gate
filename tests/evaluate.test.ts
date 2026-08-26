@@ -240,6 +240,95 @@ describe("evaluateBranch", () => {
     expect(result.description).toContain("unknown compatibility blocked");
   });
 
+  it("warns without blocking when unknown compatibility uses warn policy", async () => {
+    const reader = repository(operator127, "17.10", operator127, "18.4");
+    const checker = {
+      check: vi.fn().mockResolvedValue(
+        response({
+          compatible: "unknown",
+          matchedRange: null,
+          confidence: "low",
+        }),
+      ),
+    };
+    const configuration = parseConfiguration(
+      `${configurationYaml}\ndefaults:\n  unknown: warn\n`,
+    );
+
+    const result = await evaluateBranch(
+      "renovate/postgresql-18.x",
+      "4".repeat(40),
+      "base",
+      reader,
+      configuration,
+      checker,
+    );
+
+    expect(result.state).toBe("warning");
+    expect(result.description).toContain("unknown compatibility warning");
+  });
+
+  it("warns without blocking when an API error uses warn policy", async () => {
+    const reader = repository(operator127, "17.10", operator127, "18.4");
+    const checker = {
+      check: vi.fn().mockRejectedValue(new Error("service unavailable")),
+    };
+    const configuration = parseConfiguration(
+      `${configurationYaml}\ndefaults:\n  apiError: warn\n`,
+    );
+
+    const result = await evaluateBranch(
+      "renovate/postgresql-18.x",
+      "5".repeat(40),
+      "base",
+      reader,
+      configuration,
+      checker,
+    );
+
+    expect(result.state).toBe("warning");
+    expect(result.description).toContain("API error warning");
+  });
+
+  it("reports a blocking result when another decision only warns", async () => {
+    const reader = new MemoryRepository({
+      base: {
+        "operator.yaml": operator127,
+        "clusters/one.yaml": cluster("17.10"),
+      },
+      head: {
+        "operator.yaml": operator127,
+        "clusters/one.yaml": cluster("18.3"),
+        "clusters/two.yaml": cluster("18.4"),
+      },
+    });
+    const checker = {
+      check: vi
+        .fn()
+        .mockResolvedValueOnce(
+          response({ compatible: "unknown", matchedRange: null }),
+        )
+        .mockResolvedValueOnce(
+          response({ compatible: "incompatible", matchedRange: null }),
+        ),
+    };
+    const configuration = parseConfiguration(
+      `${configurationYaml}\ndefaults:\n  unknown: warn\n`,
+    );
+
+    const result = await evaluateBranch(
+      "renovate/postgresql-18.x",
+      "6".repeat(40),
+      "base",
+      reader,
+      configuration,
+      checker,
+    );
+
+    expect(result.state).toBe("failure");
+    expect(result.description).toContain("does not support postgresql 18.4");
+  });
+
   it("enforces evidence freshness when configured", async () => {
     const reader = repository(operator127, "17.10", operator127, "18.4");
     const checker = { check: vi.fn().mockResolvedValue(response()) };

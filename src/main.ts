@@ -168,18 +168,26 @@ async function writeSummary(
     markdown += `${escapeMarkdown(notice)}\n`;
   } else {
     markdown +=
-      "| Branch | Gate | Project | Dependency | Result | Range | Confidence | Verified |\n";
-    markdown += "| --- | --- | --- | --- | --- | --- | --- | --- |\n";
+      "| Branch | Gate | Project | Dependency | Result | Range | Basis | Confidence | Verified |\n";
+    markdown += "| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n";
 
     for (const evaluation of evaluations) {
       const decisions = evaluation.gates.flatMap((gate) => gate.decisions);
       if (decisions.length === 0) {
-        markdown += `| ${escapeMarkdown(evaluation.branch)} | — | — | — | ${evaluation.state} | — | — | — |\n`;
+        markdown += `| ${escapeMarkdown(evaluation.branch)} | — | — | — | ${evaluation.state} | — | — | — | — |\n`;
         continue;
       }
 
       for (const decision of decisions) {
-        markdown += `| ${escapeMarkdown(evaluation.branch)} | ${escapeMarkdown(decision.gateId)} | ${escapeMarkdown(`${decision.project} ${decision.projectVersion}`)} | ${escapeMarkdown(`${decision.dependency} ${decision.dependencyVersion}`)} | ${decision.state} | ${escapeMarkdown(decision.response?.matchedRange ?? "—")} | ${decision.response?.confidence ?? "—"} | ${decision.response?.lastVerified ?? "—"} |\n`;
+        const response = decision.response;
+        const range =
+          response?.matchedConstraint === "same-version"
+            ? "Same exact version"
+            : (response?.matchedRange ?? "—");
+        const basis =
+          response?.basis ??
+          (response?.compatible === "compatible" ? "supported" : "—");
+        markdown += `| ${escapeMarkdown(evaluation.branch)} | ${escapeMarkdown(decision.gateId)} | ${escapeMarkdown(`${decision.project} ${decision.projectVersion}`)} | ${escapeMarkdown(`${decision.dependency} ${decision.dependencyVersion}`)} | ${decision.state} | ${escapeMarkdown(range)} | ${basis} | ${decision.response?.confidence ?? "—"} | ${decision.response?.lastVerified ?? "—"} |\n`;
       }
     }
 

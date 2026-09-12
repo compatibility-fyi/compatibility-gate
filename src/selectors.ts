@@ -24,6 +24,7 @@ export async function resolveSelector(
     );
   }
 
+  const extract = selector.extract ? new RegExp(selector.extract) : undefined;
   const values: string[] = [];
   for (const file of matchingFiles.sort()) {
     const raw = await reader.readFile(ref, file);
@@ -53,7 +54,7 @@ export async function resolveSelector(
 
       const normalized = extractValue(
         String(selected),
-        selector.extract,
+        extract,
         file,
         selector.value,
       );
@@ -84,7 +85,7 @@ function matchesDocument(
   );
 }
 
-export function getPath(value: unknown, path: string): unknown {
+function getPath(value: unknown, path: string): unknown {
   let current = value;
   for (const part of path.split(".")) {
     if (!current || typeof current !== "object") {
@@ -98,6 +99,9 @@ export function getPath(value: unknown, path: string): unknown {
       current = current[index];
       continue;
     }
+    if (!Object.hasOwn(current, part)) {
+      return undefined;
+    }
     current = (current as Record<string, unknown>)[part];
   }
   return current;
@@ -105,7 +109,7 @@ export function getPath(value: unknown, path: string): unknown {
 
 function extractValue(
   raw: string,
-  pattern: string | undefined,
+  pattern: RegExp | undefined,
   file: string,
   path: string,
 ): string {
@@ -117,7 +121,7 @@ function extractValue(
     return value;
   }
 
-  const match = new RegExp(pattern).exec(value);
+  const match = pattern.exec(value);
   if (!match) {
     throw new Error(
       `${file} ${path} value ${JSON.stringify(value)} did not match extract pattern`,

@@ -3,7 +3,7 @@
 [![CI](https://github.com/compatibility-fyi/compatibility-gate/actions/workflows/ci.yml/badge.svg)](https://github.com/compatibility-fyi/compatibility-gate/actions/workflows/ci.yml)
 
 Prevent Renovate from opening dependency pull requests or merge requests until the proposed
-repository state is supported by source-backed [compatibility.fyi](https://compatibility.fyi)
+repository state passes checks against source-backed [compatibility.fyi](https://compatibility.fyi)
 metadata. The repository provides a GitHub Action and a GitHub-hosted GitLab CI remote template.
 
 The gate is designed for relationships Renovate cannot evaluate by itself, such as:
@@ -100,11 +100,30 @@ one gate per relationship. The action evaluates every applicable gate against th
 repository state and publishes one combined commit status. Every applicable gate and every selected
 dependency version must pass.
 
-For example, an Advanced Cluster Management update that must work with Multicluster Engine, its
-management-cluster OpenShift version, and its hosted-cluster OpenShift version uses three gates with
-the same project selector and separate dependency selectors. A grouped Renovate branch is allowed
-only when all three relationships pass. The action does not need a separate multi-dependency API
-endpoint for this behavior.
+For example, a CloudNativePG update that must work with both the declared Kubernetes version and
+PostgreSQL operand versions uses two gates with the same project selector. Use `kubernetes` and
+`postgresql` as the separate dependency keys. A grouped Renovate branch is allowed only when both
+relationships pass. The action does not need a separate multi-dependency API endpoint for this
+behavior.
+
+### Understand the evidence
+
+The API distinguishes four evidence kinds through its `basis` field:
+
+- `supported`: upstream documents support for the requested combination.
+- `tested`: upstream tests the combination; this is distinct from a vendor support guarantee.
+- `recommended`: upstream recommends an alignment, without establishing compatibility.
+- `bundled`: upstream ships the versions together, without establishing general compatibility.
+
+Matching supported or tested evidence can pass the gate, subject to confidence and age policies.
+Recommended and bundled evidence returns `unknown` even when a range or exact-version constraint
+matches. Missing coverage also returns `unknown`; only explicit upstream incompatibility produces
+`incompatible`. See the [API result semantics](https://compatibility.fyi/docs/api/#semantics).
+
+For example, ACM's bundled Multicluster Engine mapping is useful packaging evidence, but cannot
+pass the default unknown-blocking policy. An `unknown: allow` or `warn` policy is a deliberate
+exception, not a compatibility confirmation. Missing project/dependency keys can also mean a matrix
+was withdrawn or renamed; inspect the current API catalog before configuring a gate.
 
 ### 2. Add the workflow
 
@@ -140,6 +159,12 @@ For maximum supply-chain safety, replace `v1` with the full commit SHA of the re
 The scheduled trigger reevaluates existing Renovate branches when compatibility.fyi metadata
 changes without a new commit on those branches.
 
+The reusable workflow runs its own action revision using GitHub's
+[self-repository reference](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsuses),
+so pinning the workflow also pins the action it executes. This requires GitHub.com and runner
+2.336.0 or newer, which GitHub-hosted runners provide. For GitHub Enterprise Server, use the direct
+action form with a runner that supports Node.js 24 actions.
+
 ### 3. Tell Renovate to wait
 
 Apply `prCreation: "status-success"` globally:
@@ -172,7 +197,9 @@ a successful “not applicable” gate status.
 ## GitLab quickstart
 
 GitLab consumes a public template directly from this GitHub repository with `include:remote`. It is
-not a GitLab CI/CD Catalog component and does not require a mirrored GitLab project.
+not a GitLab CI/CD Catalog component and does not require a mirrored GitLab project. The pinned
+include below requires GitLab 17.9 or newer for
+[`include:integrity`](https://docs.gitlab.com/ci/yaml/#includeintegrity).
 
 ### 1. Add the gate configuration
 
@@ -200,6 +227,9 @@ The template adds two `.pre` jobs:
   allow/warn/block policy when compatibility is unknown or cannot be checked;
 - `compatibility.fyi/recheck` runs only in a scheduled default-branch pipeline and retriggers the
   existing Renovate branch pipelines.
+
+Both jobs inherit only default runner tags, so consumer setup scripts, services, hooks, and caches
+are not applied to the gate. Global variables remain available for the configuration below.
 
 GitLab does not create a pipeline that contains only jobs in the special `.pre` and `.post` stages.
 Most projects already have an ordinary build, test, or deploy job, which satisfies this requirement.
@@ -408,7 +438,7 @@ Every run writes a GitHub Actions step summary containing:
 
 - the branch and gate;
 - project and dependency versions;
-- compatibility result and matched range;
+- compatibility result, evidence basis, and matched range or exact-version constraint;
 - confidence and `lastVerified` date;
 - links to primary sources returned by compatibility.fyi.
 
@@ -493,8 +523,10 @@ Inspect the project document and dependency key:
 curl https://compatibility.fyi/api/v1/projects/cloudnativepg
 ```
 
-Do not change `unknown` to `allow` merely to suppress missing metadata. Prefer contributing
-source-backed compatibility data.
+Check whether the result is uncovered, recommended, or bundled. A matching range does not by itself
+establish compatibility. Inspect the current project index if a project was renamed or a matrix was
+withdrawn. Do not change `unknown` to `allow` merely to suppress missing metadata; prefer contributing
+source-backed support or test evidence.
 
 ## Development
 

@@ -27,17 +27,8 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Build action
-        run: npm run build
-
-      - name: Test
-        run: npm test
+      - name: Validate
+        run: npm run validate
 
       - name: Verify committed bundle
         run: git diff --exit-code -- dist

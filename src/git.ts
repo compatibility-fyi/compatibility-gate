@@ -24,7 +24,7 @@ export class GitRepositoryReader implements RepositoryReader {
 
   fetchBranch(branch: string): string {
     validateBranch(branch);
-    const remoteRef = this.remoteRef(branch);
+    const remoteRef = `refs/remotes/origin/${branch}`;
     this.git([
       "fetch",
       "--force",
@@ -33,11 +33,6 @@ export class GitRepositoryReader implements RepositoryReader {
       `+refs/heads/${branch}:${remoteRef}`,
     ]);
     return remoteRef;
-  }
-
-  remoteRef(branch: string): string {
-    validateBranch(branch);
-    return `refs/remotes/origin/${branch}`;
   }
 
   listFiles(ref: string): Promise<string[]> {
@@ -109,13 +104,22 @@ function validateBranch(branch: string): void {
 }
 
 function validateRef(ref: string): void {
+  if (/^[a-f0-9]{40}$/.test(ref)) {
+    return;
+  }
   if (
-    !ref ||
+    !ref.startsWith("refs/remotes/origin/") ||
     ref.length > 512 ||
-    ref.startsWith("-") ||
-    ref.includes("\0") ||
-    !/^(?:[a-f0-9]{40}|refs\/remotes\/origin\/[A-Za-z0-9._/-]+)$/.test(ref)
+    ref.includes("\0")
   ) {
+    throw new Error(`Invalid git reference ${JSON.stringify(ref)}`);
+  }
+  try {
+    execFileSync("git", ["check-ref-format", ref], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch {
     throw new Error(`Invalid git reference ${JSON.stringify(ref)}`);
   }
 }

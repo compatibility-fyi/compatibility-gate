@@ -9,6 +9,7 @@ import type {
   GateConfiguration,
   GateDefinition,
   GateEvaluation,
+  GatePolicy,
   RepositoryReader,
 } from "./types.js";
 
@@ -17,6 +18,15 @@ export interface CompatibilityChecker {
     request: CompatibilityCheckRequest,
   ): Promise<CompatibilityCheckResponse>;
 }
+
+const policyOutcomes: Record<
+  GatePolicy,
+  { state: DecisionState; label: string }
+> = {
+  allow: { state: "success", label: "allowed" },
+  warn: { state: "warning", label: "warning" },
+  block: { state: "error", label: "blocked" },
+};
 
 const confidenceRank: Record<ConfidenceLevel, number> = {
   low: 0,
@@ -106,7 +116,6 @@ async function evaluateGate(
     return gateConfigurationError(
       gate,
       `project selector returned ${headProjectVersions.length} values; exactly one is required`,
-      true,
     );
   }
 
@@ -162,8 +171,8 @@ async function evaluateCheck(
     const policy = gate.policy.apiError;
     return {
       ...base,
-      state: policyState(policy),
-      message: `${gate.id}: API error ${policyLabel(policy)}: ${errorMessage(error)}`,
+      state: policyOutcomes[policy].state,
+      message: `${gate.id}: API error ${policyOutcomes[policy].label}: ${errorMessage(error)}`,
     };
   }
 
@@ -180,8 +189,8 @@ async function evaluateCheck(
     const policy = gate.policy.unknown;
     return {
       ...base,
-      state: policyState(policy),
-      message: `${gate.id}: unknown compatibility ${policyLabel(policy)}`,
+      state: policyOutcomes[policy].state,
+      message: `${gate.id}: unknown compatibility ${policyOutcomes[policy].label}${response.basis === "recommended" || response.basis === "bundled" ? ` (${response.basis} evidence does not establish compatibility)` : ""}`,
       response,
     };
   }
@@ -216,7 +225,7 @@ async function evaluateCheck(
   return {
     ...base,
     state: "success",
-    message: `${gate.project.id} ${projectVersion} supports ${gate.dependency.id} ${dependencyVersion}`,
+    message: `${gate.project.id} ${projectVersion} ${response.basis === "tested" ? "was tested with" : "supports"} ${gate.dependency.id} ${dependencyVersion}`,
     response,
   };
 }
@@ -224,11 +233,10 @@ async function evaluateCheck(
 function gateConfigurationError(
   gate: GateDefinition,
   message: string,
-  applicable = true,
 ): GateEvaluation {
   return {
     gateId: gate.id,
-    applicable,
+    applicable: true,
     decisions: [
       {
         state: "error",
@@ -250,26 +258,6 @@ function sameValues(left: string[], right: string[]): boolean {
   }
   const rightValues = new Set(right);
   return left.every((value) => rightValues.has(value));
-}
-
-function policyState(
-  policy: GateDefinition["policy"]["unknown"],
-): DecisionState {
-  return policy === "allow"
-    ? "success"
-    : policy === "warn"
-      ? "warning"
-      : "error";
-}
-
-function policyLabel(
-  policy: GateDefinition["policy"]["unknown"],
-): "allowed" | "warning" | "blocked" {
-  return policy === "allow"
-    ? "allowed"
-    : policy === "warn"
-      ? "warning"
-      : "blocked";
 }
 
 function mostSevereDecision(
@@ -306,10 +294,7 @@ function evidenceAgeDays(
   ) {
     return null;
   }
-  return Math.max(
-    0,
-    Math.floor((now.getTime() - verifiedAt.getTime()) / 86_400_000),
-  );
+  return Math.floor((now.getTime() - verifiedAt.getTime()) / 86_400_000);
 }
 
 function errorMessage(error: unknown): string {

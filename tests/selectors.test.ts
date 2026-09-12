@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveSelector } from "../src/selectors.js";
-import { cluster } from "./helpers.js";
-import { MemoryRepository } from "./helpers.js";
+import { cluster, MemoryRepository } from "./helpers.js";
 
 describe("resolveSelector", () => {
   it("selects matching YAML documents and extracts image versions", async () => {
@@ -57,4 +56,19 @@ describe("resolveSelector", () => {
       }),
     ).rejects.toThrow("must provide a named version group or capture");
   });
+
+  it.each(["toString", "constructor", "__proto__"])(
+    "selects only an explicit document property named %s",
+    async (property) => {
+      const reader = new MemoryRepository({
+        head: { "versions.yaml": `{}\n---\n${property}: 1.2.3\n` },
+      });
+      await expect(
+        resolveSelector(reader, "head", {
+          files: ["versions.yaml"],
+          value: property,
+        }),
+      ).resolves.toEqual(["1.2.3"]);
+    },
+  );
 });

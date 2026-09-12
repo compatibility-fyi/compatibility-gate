@@ -1,4 +1,6 @@
 export type CompatibilityStatus = "compatible" | "incompatible" | "unknown";
+export type CompatibilityBasis =
+  "supported" | "tested" | "recommended" | "bundled";
 export type ConfidenceLevel = "low" | "medium" | "high";
 export type GatePolicy = "allow" | "warn" | "block";
 export type CommitState = "error" | "failure" | "pending" | "success";
@@ -17,6 +19,8 @@ export interface CompatibilityCheckResponse {
   dependencyVersion: string;
   compatible: CompatibilityStatus;
   matchedRange: string | null;
+  matchedConstraint?: "same-version" | null;
+  basis?: CompatibilityBasis | null;
   relationship: string | null;
   confidence: ConfidenceLevel;
   lastVerified: string | null;

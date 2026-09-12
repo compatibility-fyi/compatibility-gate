@@ -23,6 +23,20 @@ describe("GitHubClient", () => {
     ]);
   });
 
+  it("reports HTTP failures without copying reflected credentials into errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("Request rejected for Bearer secret-token", {
+          status: 403,
+        }),
+      ),
+    );
+    await expect(
+      new GitHubClient("secret-token", "owner/repository").getDefaultBranch(),
+    ).rejects.toThrow(/^GitHub API returned HTTP 403$/);
+  });
+
   it("publishes a bounded commit status without exposing the token in the body", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ id: 1 }));
     vi.stubGlobal("fetch", fetchMock);

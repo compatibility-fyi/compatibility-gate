@@ -16,6 +16,19 @@ describe("GitLab remote template", () => {
     expect(template["compatibility.fyi/gate"]?.stage).toBe(".pre");
     expect(template["compatibility.fyi/recheck"]?.allow_failure).toBe(false);
     expect(template["compatibility.fyi/recheck"]?.stage).toBe(".pre");
-    expect(JSON.stringify(template)).not.toContain("TRIGGER_TOKEN:");
+    for (const jobName of [
+      "compatibility.fyi/gate",
+      "compatibility.fyi/recheck",
+    ]) {
+      expect(template[jobName]?.inherit).toEqual({ default: ["tags"] });
+    }
+    for (const variables of [
+      template.variables,
+      ...Object.values(template).map((job) => job.variables),
+    ]) {
+      expect(variables ?? {}).not.toHaveProperty(
+        "COMPATIBILITY_FYI_GITLAB_TRIGGER_TOKEN",
+      );
+    }
   });
 });

@@ -107,7 +107,7 @@ export function validateApiUrl(value: string): void {
 
   const localHttp =
     url.protocol === "http:" &&
-    ["127.0.0.1", "localhost", "::1"].includes(url.hostname);
+    ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
   if (url.protocol !== "https:" && !localHttp) {
     throw new Error(
       "configuration.api.url must use HTTPS unless it targets localhost",
@@ -191,7 +191,6 @@ function parseDocumentSelector(
     throw new Error(`${path} must contain at least one field`);
   }
 
-  const parsed: Record<string, string | number | boolean> = {};
   for (const [key, expected] of Object.entries(document)) {
     if (!key || key.split(".").some((part) => part.length === 0)) {
       throw new Error(`${path} keys must be dot-separated object paths`);
@@ -199,9 +198,8 @@ function parseDocumentSelector(
     if (!["string", "number", "boolean"].includes(typeof expected)) {
       throw new Error(`${path}.${key} must be a string, number, or boolean`);
     }
-    parsed[key] = expected as string | number | boolean;
   }
-  return parsed;
+  return document as Record<string, string | number | boolean>;
 }
 
 function parsePolicy(

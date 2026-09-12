@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { CompatibilityCheckRequest } from "../src/api.js";
 import { parseConfiguration } from "../src/config.js";
 import { evaluateBranch } from "../src/evaluate.js";
 import type { CompatibilityCheckResponse } from "../src/types.js";
@@ -37,6 +38,45 @@ function response(
 }
 
 describe("evaluateBranch", () => {
+  it.each(["recommended", "bundled"] as const)(
+    "blocks unknown %s evidence even when its range matches",
+    async (basis) => {
+      const checker = {
+        check: vi
+          .fn()
+          .mockResolvedValue(response({ compatible: "unknown", basis })),
+      };
+      const result = await evaluateBranch(
+        "renovate/postgresql",
+        "head",
+        "base",
+        repository(operator127, "17.10", operator127, "18.4"),
+        parseConfiguration(configurationYaml),
+        checker,
+      );
+      expect(result.state).toBe("error");
+      expect(result.description).toContain(
+        `${basis} evidence does not establish compatibility`,
+      );
+    },
+  );
+
+  it("reports tested coverage without claiming upstream support", async () => {
+    const checker = {
+      check: vi.fn().mockResolvedValue(response({ basis: "tested" })),
+    };
+    const result = await evaluateBranch(
+      "renovate/postgresql",
+      "head",
+      "base",
+      repository(operator127, "17.10", operator127, "18.4"),
+      parseConfiguration(configurationYaml),
+      checker,
+    );
+    expect(result.state).toBe("success");
+    expect(result.description).toContain("was tested with postgresql 18.4");
+  });
+
   it("blocks an incompatible dependency update", async () => {
     const reader = repository(operator127, "17.10", operator127, "18.4");
     const checker = {
@@ -98,103 +138,64 @@ describe("evaluateBranch", () => {
 
   it("combines applicable gates and blocks when any relationship fails", async () => {
     const reader = new MemoryRepository({
-      base: {
-        "acm.yaml": "version: '2.15'",
-        "mce.yaml": "version: '2.10'",
-        "management-cluster.yaml": "version: '4.20.0'",
-        "hosted-cluster.yaml": "version: '4.20.0'",
-      },
-      head: {
-        "acm.yaml": "version: '2.16'",
-        "mce.yaml": "version: '2.11'",
-        "management-cluster.yaml": "version: '4.21.22'",
-        "hosted-cluster.yaml": "version: '4.21.22'",
-      },
+      base: { "versions.yaml": "project: '1'\ndatabase: '17'\nruntime: '21'" },
+      head: { "versions.yaml": "project: '2'\ndatabase: '18'\nruntime: '25'" },
     });
     const configuration = parseConfiguration(configurationYaml);
     const policy = configuration.gates[0]!.policy;
-    const dependencies = [
-      ["multicluster-engine", "mce.yaml"],
-      ["openshift-management-cluster", "management-cluster.yaml"],
-      ["openshift-hosted-cluster", "hosted-cluster.yaml"],
-    ] as const;
-    configuration.gates = dependencies.map(([dependency, file]) => ({
-      id: `acm-${dependency}`,
+    configuration.gates = ["database", "runtime"].map((dependency) => ({
+      id: `sample-${dependency}`,
       project: {
-        id: "red-hat-advanced-cluster-management",
-        version: { files: ["acm.yaml"], value: "version" },
+        id: "sample",
+        version: { files: ["versions.yaml"], value: "project" },
       },
       dependency: {
         id: dependency,
-        versions: { files: [file], value: "version" },
+        versions: { files: ["versions.yaml"], value: dependency },
       },
       policy,
     }));
-
     const checker = {
-      check: vi
-        .fn()
-        .mockImplementation(
-          (request: {
-            project: string;
-            version: string;
-            dependency: string;
-            dependencyVersion: string;
-          }) => {
-            const compatible =
-              request.dependency !== "openshift-hosted-cluster";
-            return Promise.resolve(
-              response({
-                project: request.project,
-                version: request.version,
-                dependency: request.dependency,
-                dependencyVersion: request.dependencyVersion,
-                compatible: compatible ? "compatible" : "incompatible",
-                matchedRange: compatible ? ">=1.0.0 <99.0.0" : null,
-              }),
-            );
-          },
+      check: vi.fn((request: CompatibilityCheckRequest) =>
+        Promise.resolve(
+          response({
+            ...request,
+            compatible:
+              request.dependency === "runtime" ? "incompatible" : "compatible",
+            matchedRange: request.dependencyVersion,
+          }),
         ),
+      ),
     };
-
     const result = await evaluateBranch(
-      "renovate/acm-platform-combination",
-      "1".repeat(40),
+      "renovate/grouped",
+      "head",
       "base",
       reader,
       configuration,
       checker,
     );
-
-    expect(checker.check).toHaveBeenCalledTimes(3);
-    expect(checker.check).toHaveBeenNthCalledWith(1, {
-      project: "red-hat-advanced-cluster-management",
-      version: "2.16",
-      dependency: "multicluster-engine",
-      dependencyVersion: "2.11",
-    });
-    expect(checker.check).toHaveBeenNthCalledWith(2, {
-      project: "red-hat-advanced-cluster-management",
-      version: "2.16",
-      dependency: "openshift-management-cluster",
-      dependencyVersion: "4.21.22",
-    });
-    expect(checker.check).toHaveBeenNthCalledWith(3, {
-      project: "red-hat-advanced-cluster-management",
-      version: "2.16",
-      dependency: "openshift-hosted-cluster",
-      dependencyVersion: "4.21.22",
-    });
-    expect(result.gates.every((gate) => gate.applicable)).toBe(true);
+    expect(checker.check.mock.calls.map(([request]) => request)).toEqual([
+      {
+        project: "sample",
+        version: "2",
+        dependency: "database",
+        dependencyVersion: "18",
+      },
+      {
+        project: "sample",
+        version: "2",
+        dependency: "runtime",
+        dependencyVersion: "25",
+      },
+    ]);
     expect(
       result.gates.flatMap((gate) =>
         gate.decisions.map((decision) => decision.state),
       ),
-    ).toEqual(["success", "success", "failure"]);
+    ).toEqual(["success", "failure"]);
     expect(result.state).toBe("failure");
-    expect(result.description).toContain(
-      "does not support openshift-hosted-cluster 4.21.22",
-    );
+    expect(result.description).toContain("does not support runtime 25");
   });
 
   it("returns success without an API call for unrelated branches", async () => {

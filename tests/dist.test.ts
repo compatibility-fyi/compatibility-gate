@@ -1,49 +1,36 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const actionPath = resolve("dist/index.js");
-const cliPath = resolve("dist/cli.js");
-
-describe("compiled action", () => {
-  it("boots as a self-contained ESM bundle", () => {
-    const bundle = readFileSync(actionPath, "utf8");
-    expect(bundle).not.toMatch(/from["']@actions\//);
-
-    const result = spawnSync(process.execPath, [actionPath], {
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        "INPUT_GITHUB-TOKEN": "",
-      },
-    });
-    const output = `${result.stdout}${result.stderr}`;
-
-    expect(result.status).toBe(1);
-    expect(output).not.toContain("Cannot find module");
-    expect(output).not.toContain("ERR_MODULE_NOT_FOUND");
-    expect(output).not.toContain("require is not defined");
-    expect(output).toContain("Input required and not supplied: github-token");
-  });
-});
-
-describe("compiled GitLab CLI", () => {
-  it("boots as a self-contained ESM bundle", () => {
-    const bundle = readFileSync(cliPath, "utf8");
-    expect(bundle).not.toMatch(/from["'](?:yaml|minimatch)/);
-
-    const result = spawnSync(process.execPath, [cliPath], {
-      encoding: "utf8",
-      env: {},
-    });
-    const output = `${result.stdout}${result.stderr}`;
-
-    expect(result.status).toBe(1);
-    expect(output).not.toContain("Cannot find module");
-    expect(output).not.toContain("ERR_MODULE_NOT_FOUND");
-    expect(output).not.toContain("require is not defined");
-    expect(output).toContain("CI_COMMIT_BRANCH is required");
-  });
+describe("compiled entry points", () => {
+  it.each([
+    [
+      "action",
+      "dist/index.js",
+      "Input required and not supplied: github-token",
+    ],
+    ["GitLab CLI", "dist/cli.js", "CI_COMMIT_BRANCH is required"],
+  ])(
+    "boots the %s without repository dependencies",
+    (_name, source, expectedError) => {
+      const directory = mkdtempSync(join(tmpdir(), "compatibility-gate-dist-"));
+      try {
+        const bundle = join(directory, "entry.mjs");
+        copyFileSync(resolve(source), bundle);
+        const result = spawnSync(process.execPath, [bundle], {
+          cwd: directory,
+          encoding: "utf8",
+          env: {},
+          timeout: 10_000,
+        });
+        expect(result.status).toBe(1);
+        expect(`${result.stdout}${result.stderr}`).toContain(expectedError);
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
+      }
+    },
+  );
 });

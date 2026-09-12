@@ -158,6 +158,27 @@ describe("GitLab scheduled recheck", () => {
     );
   });
 
+  it("allows the IPv6 loopback API used for local checks", async () => {
+    const fetchMock: typeof fetch = (input) => {
+      expect(requestUrl(input).hostname).toBe("[::1]");
+      return Promise.resolve(Response.json([]));
+    };
+    const logs = captureLogs();
+    await expect(
+      runGitLabRecheck(
+        {
+          CI_API_V4_URL: "http://[::1]:8080/api/v4",
+          CI_PROJECT_ID: "42",
+          CI_JOB_TOKEN: "job-token",
+          COMPATIBILITY_FYI_GITLAB_TRIGGER_TOKEN: "trigger-secret",
+        },
+        logs.logger,
+        fetchMock,
+      ),
+    ).resolves.toBe(0);
+    expect(logs.errors).toEqual([]);
+  });
+
   it("fails closed when GitLab rejects branch listing", async () => {
     const logs = captureLogs();
     const fetchMock: typeof fetch = () =>
@@ -257,7 +278,13 @@ async function withCompatibilityApi(
         confidence: "high",
         lastVerified: "2026-07-22",
         notes: [],
-        sources: [],
+        sources: [
+          {
+            title: "Compatibility matrix",
+            url: "https://example.com/matrix",
+            accessedAt: "2026-07-22",
+          },
+        ],
       }),
     );
   });

@@ -1,5 +1,7 @@
 import { minimatch } from "minimatch";
 
+import { readLimitedText } from "./http.js";
+
 import { GitRepositoryReader } from "./git.js";
 import { evaluateConfiguredBranch, prepareGate } from "./runner.js";
 import type { BranchEvaluation } from "./types.js";
@@ -162,7 +164,11 @@ async function listGitLabBranches(
       },
       signal: AbortSignal.timeout(15_000),
     });
-    const body = await readLimitedText(response);
+    const body = await readLimitedText(
+      response,
+      maxGitLabResponseBytes,
+      "GitLab API",
+    );
     if (!response.ok) {
       throw new Error(`GitLab branch API returned HTTP ${response.status}`);
     }
@@ -215,7 +221,7 @@ async function triggerGitLabPipeline(
       signal: AbortSignal.timeout(15_000),
     },
   );
-  await readLimitedText(response);
+  await readLimitedText(response, maxGitLabResponseBytes, "GitLab API");
   if (!response.ok) {
     throw new Error(
       `GitLab pipeline trigger API returned HTTP ${response.status}`,
@@ -255,38 +261,6 @@ function writeEvaluation(
   }
 }
 
-async function readLimitedText(response: Response): Promise<string> {
-  const contentLength = response.headers.get("content-length");
-  if (contentLength && Number(contentLength) > maxGitLabResponseBytes) {
-    throw new Error(
-      `GitLab API response exceeded ${maxGitLabResponseBytes} bytes`,
-    );
-  }
-  if (!response.body) {
-    return "";
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let total = 0;
-  let body = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    total += value.byteLength;
-    if (total > maxGitLabResponseBytes) {
-      await reader.cancel();
-      throw new Error(
-        `GitLab API response exceeded ${maxGitLabResponseBytes} bytes`,
-      );
-    }
-    body += decoder.decode(value, { stream: true });
-  }
-  return body + decoder.decode();
-}
-
 function requiredEnvironment(
   environment: NodeJS.ProcessEnv,
   name: string,
@@ -315,7 +289,7 @@ function validateGitLabApiUrl(value: string): string {
   }
   const localHttp =
     url.protocol === "http:" &&
-    ["127.0.0.1", "localhost", "::1"].includes(url.hostname);
+    ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
   if (url.protocol !== "https:" && !localHttp) {
     throw new Error("CI_API_V4_URL must use HTTPS");
   }
@@ -341,8 +315,4 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-const consoleLogger: GateLogger = {
-  info: (message) => console.log(message),
-  warn: (message) => console.warn(message),
-  error: (message) => console.error(message),
-};
+const consoleLogger: GateLogger = console;

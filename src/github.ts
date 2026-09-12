@@ -1,5 +1,7 @@
 import { minimatch } from "minimatch";
 
+import { readLimitedText } from "./http.js";
+
 import type { CommitState, RepositoryBranch } from "./types.js";
 
 const maxResponseBytes = 2 * 1024 * 1024;
@@ -114,9 +116,13 @@ export class GitHubClient {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: AbortSignal.timeout(15_000),
     });
-    const text = await readLimitedText(response);
+    const text = await readLimitedText(
+      response,
+      maxResponseBytes,
+      "GitHub API",
+    );
     if (!response.ok) {
-      throw new Error(`GitHub API returned HTTP ${response.status}: ${text}`);
+      throw new Error(`GitHub API returned HTTP ${response.status}`);
     }
     if (!text) {
       return null;
@@ -127,34 +133,6 @@ export class GitHubClient {
       throw new Error("GitHub API returned invalid JSON");
     }
   }
-}
-
-async function readLimitedText(response: Response): Promise<string> {
-  const contentLength = response.headers.get("content-length");
-  if (contentLength && Number(contentLength) > maxResponseBytes) {
-    throw new Error(`GitHub API response exceeded ${maxResponseBytes} bytes`);
-  }
-  if (!response.body) {
-    return "";
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let total = 0;
-  let body = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    total += value.byteLength;
-    if (total > maxResponseBytes) {
-      await reader.cancel();
-      throw new Error(`GitHub API response exceeded ${maxResponseBytes} bytes`);
-    }
-    body += decoder.decode(value, { stream: true });
-  }
-  return body + decoder.decode();
 }
 
 function truncate(value: string, maximum: number): string {

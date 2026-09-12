@@ -1,4 +1,8 @@
+import { setTimeout as delay } from "node:timers/promises";
+
+import { readLimitedText } from "./http.js";
 import type {
+  CompatibilityBasis,
   CompatibilityCheckResponse,
   CompatibilitySource,
   CompatibilityStatus,
@@ -38,8 +42,7 @@ export class CompatibilityApiClient {
       dependencyVersion: request.dependencyVersion,
     }).toString();
 
-    let lastError: unknown;
-    for (let attempt = 0; attempt <= this.retries; attempt += 1) {
+    for (let attempt = 0; ; attempt += 1) {
       try {
         const response = await fetch(url, {
           headers: {
@@ -49,17 +52,16 @@ export class CompatibilityApiClient {
           },
           signal: AbortSignal.timeout(this.timeoutMs),
         });
-        const body = await readLimitedText(response);
+        const body = await readLimitedText(response, maxResponseBytes);
 
         if (!response.ok) {
           const error = new Error(
-            `compatibility.fyi returned HTTP ${response.status}: ${body}`,
+            `compatibility.fyi returned HTTP ${response.status}`,
           );
           if (
             (response.status === 429 || response.status >= 500) &&
             attempt < this.retries
           ) {
-            lastError = error;
             await delay(250 * 2 ** attempt);
             continue;
           }
@@ -74,7 +76,6 @@ export class CompatibilityApiClient {
         }
         return validateResponse(parsed, request);
       } catch (error) {
-        lastError = error;
         if (attempt < this.retries && isRetryableNetworkError(error)) {
           await delay(250 * 2 ** attempt);
           continue;
@@ -82,8 +83,6 @@ export class CompatibilityApiClient {
         throw error;
       }
     }
-
-    throw lastError instanceof Error ? lastError : new Error(String(lastError));
   }
 }
 
@@ -117,17 +116,61 @@ function validateResponse(
     response.lastVerified,
     "API response lastVerified",
   );
-  if (lastVerified && !/^\d{4}-\d{2}-\d{2}$/.test(lastVerified)) {
-    throw new Error("API response lastVerified must be an ISO date or null");
+  if (lastVerified !== null) {
+    validateDate(lastVerified, "API response lastVerified");
+  }
+  const basis = optionalNullableString(response.basis, "API response basis");
+  if (
+    basis !== null &&
+    !["supported", "tested", "recommended", "bundled"].includes(basis)
+  ) {
+    throw new Error(
+      "API response basis must be supported, tested, recommended, bundled, or null",
+    );
+  }
+  const matchedConstraint = optionalNullableString(
+    response.matchedConstraint,
+    "API response matchedConstraint",
+  );
+  if (matchedConstraint !== null && matchedConstraint !== "same-version") {
+    throw new Error(
+      "API response matchedConstraint must be same-version or null",
+    );
+  }
+  const matchedRange = optionalNullableString(
+    response.matchedRange,
+    "API response matchedRange",
+  );
+  const sources = sourceArray(response.sources);
+  if (response.compatible === "compatible") {
+    if (basis === "recommended" || basis === "bundled") {
+      throw new Error(
+        "API response cannot establish compatibility from recommendations or bundles",
+      );
+    }
+    if (!matchedRange?.trim() && !matchedConstraint) {
+      throw new Error(
+        "API response compatible result must include a matched constraint",
+      );
+    }
+  }
+  if (response.confidence !== "low" && sources.length === 0) {
+    throw new Error(
+      "API response must include sources for medium or high confidence",
+    );
+  }
+  if (response.confidence === "high" && lastVerified === null) {
+    throw new Error(
+      "API response high confidence requires a verification date",
+    );
   }
 
   return {
     ...request,
     compatible: response.compatible as CompatibilityStatus,
-    matchedRange: optionalNullableString(
-      response.matchedRange,
-      "API response matchedRange",
-    ),
+    matchedRange,
+    matchedConstraint,
+    basis: basis as CompatibilityBasis | null,
     relationship: optionalNullableString(
       response.relationship,
       "API response relationship",
@@ -135,7 +178,7 @@ function validateResponse(
     confidence: response.confidence as ConfidenceLevel,
     lastVerified,
     notes: stringArray(response.notes, "API response notes"),
-    sources: sourceArray(response.sources),
+    sources,
   };
 }
 
@@ -158,6 +201,9 @@ function sourceArray(value: unknown): CompatibilitySource[] {
       record.accessedAt,
       `API response sources[${index}].accessedAt`,
     );
+    if (accessedAt !== null) {
+      validateDate(accessedAt, `API response sources[${index}].accessedAt`);
+    }
     return { title, url, ...(accessedAt ? { accessedAt } : {}) };
   });
 }
@@ -171,34 +217,6 @@ function validateSourceUrl(value: string, path: string): void {
   } catch (error) {
     throw new Error(`${path} must be an HTTP(S) URL`, { cause: error });
   }
-}
-
-async function readLimitedText(response: Response): Promise<string> {
-  const contentLength = response.headers.get("content-length");
-  if (contentLength && Number(contentLength) > maxResponseBytes) {
-    throw new Error(`API response exceeded ${maxResponseBytes} bytes`);
-  }
-  if (!response.body) {
-    return "";
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let total = 0;
-  let body = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    total += value.byteLength;
-    if (total > maxResponseBytes) {
-      await reader.cancel();
-      throw new Error(`API response exceeded ${maxResponseBytes} bytes`);
-    }
-    body += decoder.decode(value, { stream: true });
-  }
-  return body + decoder.decode();
 }
 
 function asRecord(value: unknown, path: string): Record<string, unknown> {
@@ -243,6 +261,13 @@ function isRetryableNetworkError(error: unknown): boolean {
   );
 }
 
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+function validateDate(value: string, path: string): void {
+  const date = new Date(`${value}T00:00:00Z`);
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+    Number.isNaN(date.getTime()) ||
+    date.toISOString().slice(0, 10) !== value
+  ) {
+    throw new Error(`${path} must be a valid ISO date`);
+  }
 }

@@ -89,4 +89,24 @@ api:
       ),
     ).toThrow("must be a valid regular expression");
   });
+
+  it.each(["localhost", "127.0.0.1", "[::1]"])(
+    "allows HTTP on loopback host %s",
+    (host) => {
+      const url = `http://${host}:3000/check`;
+      const configuration = parseConfiguration(
+        `${configurationYaml}\napi:\n  url: ${url}\n`,
+      );
+      expect(configuration.api.url).toBe(url);
+    },
+  );
+
+  it("preserves explicit prototype-named document filters", () => {
+    const configuration = parseConfiguration(
+      configurationYaml.replace("kind: GitRepository", "__proto__: wanted"),
+    );
+    const filter = configuration.gates[0]!.project.version.document!;
+    expect(Object.hasOwn(filter, "__proto__")).toBe(true);
+    expect(filter.__proto__).toBe("wanted");
+  });
 });

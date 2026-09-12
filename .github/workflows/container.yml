@@ -65,9 +65,10 @@ jobs:
             type=semver,pattern={{raw}}
             type=semver,pattern=v{{major}}.{{minor}}
             type=semver,pattern=v{{major}}
-            type=raw,value=latest,enable=${{ github.event_name == 'release' }}
+            type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
 
       - name: Build and publish image
+        id: image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -79,15 +80,22 @@ jobs:
           provenance: mode=max
           sbom: true
 
-      - name: Verify anonymous pull access
+      - name: Verify anonymous manifest access
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           for attempt in {1..10}; do
-            if curl --fail --silent --show-error \
+            if registry_token=$(curl --fail --silent --show-error --connect-timeout 5 --max-time 20 \
               "https://ghcr.io/token?scope=repository%3Acompatibility-fyi%2Fcompatibility-gate%3Apull&service=ghcr.io" \
-              | jq --exit-status '.token | type == "string" and length > 0' >/dev/null; then
+              | jq --exit-status --raw-output '.token | select(type == "string" and length > 0)') \
+              && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 \
+                --header "Authorization: Bearer $registry_token" \
+                --header "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json" \
+                --output /dev/null \
+                "https://ghcr.io/v2/compatibility-fyi/compatibility-gate/manifests/$IMAGE_DIGEST"; then
               exit 0
             fi
             sleep 3
           done
-          echo "The compatibility-gate package does not allow anonymous pulls" >&2
+          echo "The published compatibility-gate manifest is not anonymously accessible" >&2
           exit 1

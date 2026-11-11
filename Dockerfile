@@ -1,4 +1,4 @@
-FROM node:26.13.0-alpine3.23@sha256:44a3247313f9bc069a4ec25d01b66254ed7dc4d0408727d8720dc827f0753423
+FROM node:26.13.1-alpine3.23@sha256:2a7b5ab38661380b55e8ac9f94badae404229af748f1b2fdee80e595df052d8c
 
 RUN apk add --no-cache ca-certificates git
 
